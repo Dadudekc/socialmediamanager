@@ -28,10 +28,14 @@ python sentiment_analysis_discord_bot.py --ticker TSLA
 ---
 
 ## **Planned Expansions**
-🚀 **More Platforms** – Expand beyond Stocktwits to include **Reddit, Twitter, and Discord**.  
-🚀 **Real-Time Sentiment Tracking** – Stream messages continuously for live sentiment updates.  
-🚀 **AI-Powered Predictions** – Use historical sentiment data to predict stock movements.  
-🚀 **Dashboard & Visualization** – Interactive UI for trend analysis & data visualization.  
+🚀 **More Platforms** – Expand beyond Stocktwits to include **Reddit, Twitter, and Discord**.
+🚀 **Real-Time Sentiment Tracking** – Stream messages continuously for live sentiment updates.
+🚀 **AI-Powered Predictions** – Use historical sentiment data to predict stock movements.
+🚀 **Dashboard & Visualization** – Interactive UI for trend analysis & data visualization.
+🚀 **Cloud Deployment** – Run the service 24/7 in a containerized cloud environment.
+🚀 **Mobile Notifications** – Push sentiment alerts to a mobile or chat app.
+🚀 **Trading API Integration** – Optional hooks to brokers for automated trades based on sentiment.
+🚀 **Historical Data Backfill** – Ingest older Stocktwits messages for long-term trend analysis.
 
 ---
 
