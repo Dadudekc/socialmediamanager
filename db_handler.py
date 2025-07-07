@@ -10,7 +10,7 @@ from project_config import config
 
 class DatabaseHandler:
     """
-    Handles database operations for storing sentiment data.
+    Handles database operations for storing sentiment data and raw posts.
     Supports MySQL as the backend.
     """
 
@@ -52,8 +52,8 @@ class DatabaseHandler:
         self.logger.info("✅ Database connection closed.")
 
     def initialize_table(self):
-        """Ensures SentimentData table exists."""
-        query = """
+        """Ensures database tables exist."""
+        sentiment_query = """
         CREATE TABLE IF NOT EXISTS SentimentData (
             id INT AUTO_INCREMENT PRIMARY KEY,
             ticker VARCHAR(10),
@@ -64,12 +64,24 @@ class DatabaseHandler:
             sentiment_category VARCHAR(20)
         );
         """
+
+        posts_query = """
+        CREATE TABLE IF NOT EXISTS RawPosts (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            platform VARCHAR(20),
+            text TEXT,
+            timestamp DATETIME
+        );
+        """
+
         try:
-            self.cursor.execute(query)
+            self.cursor.execute(sentiment_query)
+            self.cursor.execute(posts_query)
             self.conn.commit()
             self.logger.info("✅ SentimentData table initialized successfully.")
+            self.logger.info("✅ RawPosts table initialized successfully.")
         except Exception as e:
-            self.logger.error(f"❌ Error initializing SentimentData table: {e}")
+            self.logger.error(f"❌ Error initializing tables: {e}")
             raise
 
     def bulk_insert_sentiment(self, data):
@@ -87,6 +99,21 @@ class DatabaseHandler:
             self.logger.error(f"⚠️ Database bulk insert failed: {e}")
             raise
 
+    def bulk_insert_posts(self, data):
+        """Inserts multiple raw social media posts."""
+        query = """
+        INSERT INTO RawPosts (platform, text, timestamp)
+        VALUES (%s, %s, %s);
+        """
+        try:
+            self.cursor.executemany(query, data)
+            self.conn.commit()
+            self.logger.info(f"✅ Inserted {len(data)} raw posts.")
+        except Exception as e:
+            self.conn.rollback()
+            self.logger.error(f"⚠️ Database post insert failed: {e}")
+            raise
+
     def save_sentiment(self, ticker, timestamp, content, textblob_sentiment, vader_sentiment, sentiment_category):
         """
         Saves a single sentiment data point into the database.
@@ -102,6 +129,21 @@ class DatabaseHandler:
         except Exception as e:
             self.conn.rollback()
             self.logger.error(f"⚠️ Error saving sentiment data: {e}")
+            raise
+
+    def save_post(self, platform, text, timestamp):
+        """Saves a single raw post."""
+        query = """
+        INSERT INTO RawPosts (platform, text, timestamp)
+        VALUES (%s, %s, %s);
+        """
+        try:
+            self.cursor.execute(query, (platform, text, timestamp))
+            self.conn.commit()
+            self.logger.info("✅ Saved post from %s", platform)
+        except Exception as e:
+            self.conn.rollback()
+            self.logger.error(f"⚠️ Error saving post: {e}")
             raise
 
     def fetch_sentiment(self, ticker, limit=10):

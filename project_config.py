@@ -19,10 +19,18 @@ else:
 class Config:
     """Centralized configuration handler for SocialMediaManager."""
 
-    def __init__(self):
-        """Initialize and load environment variables into instance properties."""
+    def __init__(self, validate: bool = True):
+        """Initialize and load environment variables into instance properties.
+
+        The ``validate`` flag allows the instance to be created even when
+        required environment variables are missing. This is useful for unit
+        tests where modules import ``config`` before the test suite patches
+        environment variables. When ``validate`` is ``False`` the caller is
+        responsible for invoking ``validate()`` later if needed.
+        """
         self.load_env()      # Load all environment variables.
-        self.validate()      # Automatically check for missing values on startup.
+        if validate:
+            self.validate()  # Automatically check for missing values on startup.
 
     def load_env(self):
         """Load environment variables into instance properties."""
@@ -41,6 +49,9 @@ class Config:
         # API Keys & Tokens
         self.DISCORD_TOKEN = self.get_env("DISCORD_TOKEN")
         self.DISCORD_CHANNEL_ID = self.get_env("DISCORD_CHANNEL_ID", default=0, cast_type=int)
+        # Optional credentials for Discord web login
+        self.DISCORD_EMAIL = self.get_env("DISCORD_EMAIL")
+        self.DISCORD_PASSWORD = self.get_env("DISCORD_PASSWORD")
         self.ALPACA_API_KEY = self.get_env("ALPACA_API_KEY")
         self.ALPACA_SECRET_KEY = self.get_env("ALPACA_SECRET_KEY")
 
@@ -105,6 +116,9 @@ class Config:
             raise ValueError(error_msg)
 
 
-# 🔹 **Ensure config is always available when imported**
-config = Config()  # ✅ Fix: Now other files can import `config` as an instance.
+# 🔹 **Ensure config is available without forcing validation on import**
+# By setting ``validate=False`` other modules can import ``config`` before the
+# test suite patches environment variables. Applications should call
+# ``config.validate()`` once the environment is fully configured.
+config = Config(validate=False)
 

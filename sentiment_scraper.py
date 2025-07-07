@@ -8,17 +8,16 @@ import json
 import re
 import logging
 import asyncio
-import pandas as pd
 from datetime import datetime, timedelta
 from pathlib import Path
 import discord
+import csv
 
 # Selenium and Web Scraping
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
-from bs4 import BeautifulSoup
 from selenium.common.exceptions import WebDriverException
 
 # Sentiment Analysis
@@ -165,28 +164,24 @@ def scroll_and_collect(driver):
     return driver.page_source
 
 def extract_messages(html_content):
-    """
-    Parse HTML from Stocktwits, gather messages w/timestamps, filter spam duplicates.
-    """
-    from bs4 import BeautifulSoup
-    soup = BeautifulSoup(html_content, "html.parser")
+    """Parse HTML and extract timestamped messages without using BeautifulSoup."""
+    pattern = re.compile(
+        r"<time[^>]*datetime=\"([^\"]+)\"[^>]*>\s*</time>\s*<div class=\"RichTextMessage_body__4qUeP\">(.*?)</div>",
+        re.S,
+    )
     messages = []
     spam_count = 0
+    for timestamp, content in pattern.findall(html_content):
+        content = content.strip()
+        if content and timestamp:
+            if is_spam(content):
+                spam_count += 1
+                continue
+            messages.append({"timestamp": timestamp, "content": content})
 
-    for msg in soup.find_all("div", class_="RichTextMessage_body__4qUeP"):
-        try:
-            timestamp_elem = msg.find_previous("time")
-            content = msg.get_text(strip=True)
-            timestamp = timestamp_elem.get("datetime") if timestamp_elem else None
-            if content and timestamp:
-                if is_spam(content):
-                    spam_count += 1
-                    continue
-                messages.append({"timestamp": timestamp, "content": content})
-        except Exception as e:
-            logger.warning(f"⚠️ Failed to extract a message: {e}")
-
-    logger.info(f"✅ Extracted {len(messages)} unique messages. Filtered {spam_count} spam messages.")
+    logger.info(
+        f"✅ Extracted {len(messages)} unique messages. Filtered {spam_count} spam messages."
+    )
     return messages
 
 def append_to_csv_by_ticker_and_sentiment(processed_data):
@@ -209,10 +204,13 @@ def append_to_csv_by_ticker_and_sentiment(processed_data):
 
     for file_path_str, rows in grouped_data.items():
         file_path = Path(file_path_str)
-        df = pd.DataFrame(rows)
         file_exists = file_path.exists()
-        df.to_csv(file_path, mode="a", header=not file_exists, index=False)
-        logger.info(f"✅ Appended {len(df)} rows to {file_path}.")
+        with open(file_path, "a", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=rows[0].keys())
+            if not file_exists:
+                writer.writeheader()
+            writer.writerows(rows)
+        logger.info(f"✅ Appended {len(rows)} rows to {file_path}.")
 
 def bulk_save_sentiment(processed_data):
     """

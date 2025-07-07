@@ -17,6 +17,7 @@ from platform_login_manager import (
     login_linkedin,
     run_all_logins,
     login_instagram,
+    login_discord,
     logger,
     SOCIAL_CREDENTIALS
 )
@@ -87,7 +88,8 @@ def test_save_cookies(dummy_driver, tmp_path):
     platform = "testplatform"
     dummy_driver.get_cookies.return_value = [{"name": "cookie1", "value": "value1"}]
     with patch("platform_login_manager.os.makedirs") as mock_makedirs, \
-         patch("platform_login_manager.pickle.dump") as mock_pickle_dump:
+         patch("platform_login_manager.pickle.dump") as mock_pickle_dump, \
+         patch("builtins.open", create=True) as mock_open:
         save_cookies(dummy_driver, platform)
     mock_makedirs.assert_called()
     mock_pickle_dump.assert_called_once()
@@ -113,6 +115,7 @@ def test_run_all_logins():
          patch("platform_login_manager.login_twitter") as mock_login_twitter, \
          patch("platform_login_manager.login_facebook") as mock_login_facebook, \
          patch("platform_login_manager.login_instagram") as mock_login_instagram, \
+         patch("platform_login_manager.login_discord") as mock_login_discord, \
          patch("platform_login_manager.login_reddit") as mock_login_reddit, \
          patch("platform_login_manager.login_stocktwits") as mock_login_stocktwits:
         
@@ -124,6 +127,7 @@ def test_run_all_logins():
         mock_login_twitter.assert_called_once_with(dummy_driver)
         mock_login_facebook.assert_called_once_with(dummy_driver)
         mock_login_instagram.assert_called_once_with(dummy_driver)
+        mock_login_discord.assert_called_once_with(dummy_driver)
         mock_login_reddit.assert_called_once_with(dummy_driver)
         mock_login_stocktwits.assert_called_once_with(dummy_driver)
         dummy_driver.quit.assert_called_once()
