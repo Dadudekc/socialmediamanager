@@ -156,3 +156,26 @@ def test_fetch_sentiment_failure(db_handler, mock_logger):
 
     assert results == []
     mock_logger.error.assert_any_call("⚠️ Error fetching sentiment data: Fetch error")
+
+
+def test_bulk_insert_posts_success(db_handler, mock_logger):
+    db, mock_conn, mock_cursor = db_handler
+    test_data = [("reddit", "text", "2024-03-01 12:00:00")]
+
+    db.bulk_insert_posts(test_data)
+
+    mock_cursor.executemany.assert_called_once()
+    assert mock_conn.commit.call_count >= 1
+    mock_logger.info.assert_any_call("✅ Inserted 1 raw posts.")
+
+
+def test_bulk_insert_posts_failure(db_handler, mock_logger):
+    db, mock_conn, mock_cursor = db_handler
+    mock_cursor.executemany.side_effect = Exception("Insert error")
+
+    with pytest.raises(Exception, match="Insert error"):
+        db.bulk_insert_posts([("reddit", "text", "2024-03-01 12:00:00")])
+
+    mock_conn.rollback.assert_called_once()
+    mock_logger.error.assert_any_call("⚠️ Database post insert failed: Insert error")
+

@@ -56,6 +56,10 @@ SOCIAL_CREDENTIALS = {
         "email": config.get_env("REDDIT_USERNAME"),
         "password": config.get_env("REDDIT_PASSWORD")
     },
+    "discord": {
+        "email": config.get_env("DISCORD_EMAIL"),
+        "password": config.get_env("DISCORD_PASSWORD")
+    },
     "stocktwits": {
         "email": config.get_env("STOCKTWITS_USERNAME"),
         "password": config.get_env("STOCKTWITS_PASSWORD")
@@ -324,6 +328,35 @@ def login_reddit(driver):
     )
 
 # ------------------
+# Discord Login
+# ------------------
+
+def login_discord(driver):
+    platform = "discord"
+    driver.get("https://discord.com/login")
+    time.sleep(5)
+
+    load_cookies(driver, platform)
+    driver.refresh()
+    time.sleep(5)
+
+    if "channels" in driver.current_url:
+        logger.info("Already logged into Discord.")
+        return
+
+    creds = SOCIAL_CREDENTIALS.get(platform, {})
+    if creds.get("email") and creds.get("password"):
+        try:
+            email_field = driver.find_element(By.NAME, "email")
+            password_field = driver.find_element(By.NAME, "password")
+            email_field.send_keys(creds["email"])
+            password_field.send_keys(creds["password"], Keys.RETURN)
+        except Exception as e:
+            logger.error("Automatic login error for %s: %s", platform, e)
+
+    wait_for_manual_login(driver, lambda d: "channels" in d.current_url, platform)
+
+# ------------------
 # NEW: Stocktwits Login
 # ------------------
 
@@ -386,6 +419,7 @@ def run_all_logins():
     
     login_functions = [
         login_stocktwits,
+        login_discord,
         login_twitter,
         login_facebook,
         login_instagram,

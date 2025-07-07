@@ -147,8 +147,10 @@ def test_append_to_csv_by_ticker_and_sentiment(tmp_path):
         # Check file exists
         csv_file = tmp_path / "AAPL" / "AAPL_Bullish_sentiment.csv"
         assert csv_file.exists()
-        df = __import__("pandas").read_csv(csv_file)
-        assert not df.empty
+        import csv
+        with open(csv_file, newline="") as f:
+            rows = list(csv.reader(f))
+        assert len(rows) > 1
     finally:
         sentiment_scraper.BASE_DATA_DIR = original_base
 
@@ -214,18 +216,19 @@ def test_single_ticker_scrape(monkeypatch):
     # At least one message should be processed.
     assert len(processed) >= 1
 
-@pytest.mark.asyncio
-async def test_run_multi_ticker_scraper(monkeypatch):
-    # Patch single_ticker_scrape to return a fixed summary and data.
-    async def fake_to_thread(func, ticker):
-        return ("Fake Summary", [{"ticker": ticker, "sentiment_category": "Bullish", "text": "Test",
+def test_run_multi_ticker_scraper(monkeypatch):
+    async def _run():
+        # Patch single_ticker_scrape to return a fixed summary and data.
+        async def fake_to_thread(func, ticker):
+            return ("Fake Summary", [{"ticker": ticker, "sentiment_category": "Bullish", "text": "Test",
                                   "timestamp": "2025-02-27 08:36:59", "textblob_sentiment_tb": 0.1,
                                   "textblob_sentiment_vader": 0.2}])
-    monkeypatch.setattr("asyncio.to_thread", fake_to_thread)
-    # Run the async generator for one iteration.
-    gen = run_multi_ticker_scraper(tickers=["AAPL"], interval_minutes=0, run_duration_hours=0.001)
-    embeds = []
-    async for embed in gen:
-        embeds.append(embed)
-    # Ensure we get at least one embed.
-    assert len(embeds) >= 1
+        monkeypatch.setattr("asyncio.to_thread", fake_to_thread)
+        # Run the async generator for one iteration.
+        gen = run_multi_ticker_scraper(tickers=["AAPL"], interval_minutes=0, run_duration_hours=0.001)
+        embeds = []
+        async for embed in gen:
+            embeds.append(embed)
+        # Ensure we get at least one embed.
+        assert len(embeds) >= 1
+    asyncio.run(_run())

@@ -25,7 +25,8 @@ def disable_dotenv_and_clear_env(monkeypatch):
         "LINKEDIN_EMAIL", "LINKEDIN_PASSWORD", "TWITTER_EMAIL", "TWITTER_PASSWORD",
         "FACEBOOK_EMAIL", "FACEBOOK_PASSWORD", "INSTAGRAM_EMAIL", "INSTAGRAM_PASSWORD",
         "REDDIT_USERNAME", "REDDIT_PASSWORD", "DISCORD_TOKEN", "DISCORD_CHANNEL_ID",
-        "ALPACA_API_KEY", "ALPACA_SECRET_KEY", "LOG_DIR"
+        "ALPACA_API_KEY", "ALPACA_SECRET_KEY", "LOG_DIR",
+        "DISCORD_EMAIL", "DISCORD_PASSWORD"
     ]:
         monkeypatch.delenv(key, raising=False)
     yield
@@ -64,7 +65,8 @@ class TestConfig:
             "LINKEDIN_EMAIL", "LINKEDIN_PASSWORD", "TWITTER_EMAIL", "TWITTER_PASSWORD",
             "FACEBOOK_EMAIL", "FACEBOOK_PASSWORD", "INSTAGRAM_EMAIL", "INSTAGRAM_PASSWORD",
             "REDDIT_USERNAME", "REDDIT_PASSWORD", "DISCORD_TOKEN", "DISCORD_CHANNEL_ID",
-            "ALPACA_API_KEY", "ALPACA_SECRET_KEY", "LOG_DIR"
+            "ALPACA_API_KEY", "ALPACA_SECRET_KEY", "LOG_DIR",
+            "DISCORD_EMAIL", "DISCORD_PASSWORD"
         ]:
             monkeypatch.delenv(key, raising=False)
         yield
@@ -121,8 +123,7 @@ class TestConfig:
         empty_vars = {key: "" for key in required_keys}
         with patch.dict(os.environ, empty_vars, clear=True):
             with pytest.raises(ValueError) as excinfo:
-                # When we reload the config, instantiation of Config() should raise ValueError.
-                reload_config()
+                config_module.Config()
             error_msg = str(excinfo.value)
             assert "Missing required config values" in error_msg
             for key in required_keys:
@@ -148,7 +149,7 @@ class TestConfig:
         monkeypatch.delenv("TWITTER_EMAIL", raising=False)
         assert os.getenv("TWITTER_EMAIL") is None
         with pytest.raises(ValueError) as excinfo:
-            reload_config()
+            config_module.Config()
         error_msg = str(excinfo.value)
         assert "Missing required config values" in error_msg
         assert "TWITTER_EMAIL" in error_msg
