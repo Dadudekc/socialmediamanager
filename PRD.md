@@ -58,6 +58,12 @@ This project provides tools to collect and analyze stock market sentiment from s
    - Optional module connecting to brokers like Alpaca to execute trades based on sentiment signals.
 8. **Cloud Deployment**
    - Deployable container images and infrastructure scripts for continuous operation in the cloud.
+9. **Growth & Engagement Engine**
+   - Micro-communities with a Niche Finder onboarding and problem-solving threads.
+   - Partner growth loops through collab posts, pinned shoutouts, and a Value Trade board.
+   - Gamified social rituals with badges, XP, and a weekly Top Human leaderboard that recognizes cross-posting.
+   - Weekly content builder supporting carousels, threads, shorts, and smart pinning for one-click cross-platform sharing.
+   - Core loop: Niche Activation → Collab Expansion → Human Recognition → Content Sync.
 
 ## Success Metrics
 - Number of supported platforms and tickers actively tracked.
@@ -73,4 +79,11 @@ This project provides tools to collect and analyze stock market sentiment from s
 - **Phase 5**: Ingest additional sources such as news feeds and podcasts; support multilingual sentiment.
 - **Phase 6**: Release a public API with role-based access and advanced analytics.
 - **Phase 7**: Explore automated trading strategies with portfolio management tools.
+
+## Task List
+- Design data models and API endpoints for micro-communities, collab posts, and the Value Trade board.
+- Implement Niche Finder onboarding and templates for problem-solving threads.
+- Build engagement gamification: badges, XP, starter comment rewards, and the weekly Top Human leaderboard.
+- Create a weekly content builder with short-form video prompts, smart pinning, and cross-platform sharing hooks.
+- Schedule background jobs for leaderboards, collab suggestions, and multi-platform content pushes while logging engagement metrics.
 
