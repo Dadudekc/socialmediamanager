@@ -2,6 +2,7 @@ import mysql.connector
 import logging
 import os
 import sys
+from datetime import datetime
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from project_config import config
@@ -151,25 +152,62 @@ class DatabaseHandler:
         Fetches the most recent sentiment data for a given ticker.
         :param ticker: Stock ticker symbol.
         :param limit: Maximum number of records to retrieve.
-        :return: List of dictionaries containing sentiment data.
+        :return: List of tuples containing sentiment data.
         """
         query = """
-        SELECT timestamp, content, textblob_sentiment, vader_sentiment, sentiment_category
+        SELECT id, ticker, timestamp, content, textblob_sentiment, vader_sentiment, sentiment_category
         FROM SentimentData WHERE ticker = %s ORDER BY timestamp DESC LIMIT %s;
         """
         try:
             self.cursor.execute(query, (ticker, limit))
             rows = self.cursor.fetchall()
-            sentiment_data = []
-            for row in rows:
-                sentiment_data.append({
-                    "timestamp": row[0],
-                    "content": row[1],
-                    "textblob_sentiment": row[2],
-                    "vader_sentiment": row[3],
-                    "sentiment_category": row[4]
-                })
-            return sentiment_data
+            return rows
         except Exception as e:
             self.logger.error(f"⚠️ Error fetching sentiment data: {e}")
             return []
+
+    def get_available_tickers(self):
+        """Get list of available tickers in the database."""
+        query = """
+        SELECT DISTINCT ticker FROM SentimentData ORDER BY ticker;
+        """
+        try:
+            self.cursor.execute(query)
+            rows = self.cursor.fetchall()
+            return [row[0] for row in rows]
+        except Exception as e:
+            self.logger.error(f"⚠️ Error fetching available tickers: {e}")
+            return []
+
+    def get_summary_stats(self):
+        """Get summary statistics for the dashboard."""
+        try:
+            # Total records
+            self.cursor.execute("SELECT COUNT(*) FROM SentimentData")
+            total_records = self.cursor.fetchone()[0]
+            
+            # Records by sentiment
+            self.cursor.execute("""
+                SELECT sentiment_category, COUNT(*) 
+                FROM SentimentData 
+                GROUP BY sentiment_category
+            """)
+            sentiment_counts = dict(self.cursor.fetchall())
+            
+            # Recent activity (last 24 hours)
+            self.cursor.execute("""
+                SELECT COUNT(*) 
+                FROM SentimentData 
+                WHERE timestamp >= NOW() - INTERVAL 24 HOUR
+            """)
+            recent_activity = self.cursor.fetchone()[0]
+            
+            return {
+                "total_records": total_records,
+                "sentiment_distribution": sentiment_counts,
+                "recent_activity_24h": recent_activity,
+                "timestamp": datetime.now().isoformat()
+            }
+        except Exception as e:
+            self.logger.error(f"⚠️ Error fetching summary stats: {e}")
+            return {"error": str(e)}

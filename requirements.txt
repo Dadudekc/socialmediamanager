@@ -19,3 +19,12 @@ torchaudio
 webdriver-manager
 textblob
 vaderSentiment
+fastapi
+uvicorn
+plotly
+joblib
+alpaca-trade-api
+yfinance
+pyyaml
+dataclasses
+PyQt6
