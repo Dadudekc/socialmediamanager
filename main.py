@@ -1,374 +1,418 @@
 #!/usr/bin/env python3
 """
-Social Media Sentiment Analysis - Main Application
-=================================================
-
-This is the main entry point for the social media sentiment analysis system.
-It orchestrates all components including scraping, analysis, prediction, 
-trading, notifications, and the dashboard.
-
-Usage:
-    python main.py [options]
-
-Options:
-    --mode MODE           Operation mode: 'scraping', 'dashboard', 'trading', 'all'
-    --tickers TICKERS     Comma-separated list of tickers to monitor
-    --interval MINUTES    Scraping interval in minutes (default: 15)
-    --duration HOURS      Duration to run in hours (default: 8)
-    --port PORT          Dashboard port (default: 8000)
-    --host HOST          Dashboard host (default: 0.0.0.0)
+Ultimate Follow Builder - Integrated System
+The most comprehensive social media growth automation system.
+Combines follow automation, engagement automation, AI content generation, and web dashboard.
 """
 
-import os
-import sys
 import asyncio
-import argparse
-import signal
-import logging
-from datetime import datetime, timedelta
-from typing import List, Dict, Optional
+import json
+import time
+from datetime import datetime
+from typing import Dict, List, Any
 import uvicorn
-from pathlib import Path
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse
 
-# Import all components
-from project_config import config
-from setup_logging import setup_logging
-from sentiment_scraper import run_multi_ticker_scraper
-from multi_platform_streamer import stream_and_store_posts
-from dashboard import Dashboard
-from predictive_models import SentimentPredictor
-from trading_api import TradingAPI
-from notification_system import NotificationSystem
-from db_handler import DatabaseHandler
+from ultimate_follow_builder import UltimateFollowBuilder, BuilderConfig, BuilderMode
+from ai_content_generator import AIContentGenerator, ContentRequest, ContentType, ToneType
+from web_dashboard import DASHBOARD_HTML, ConnectionManager
 
-# Setup logging
-logger = setup_logging("main", log_dir=config.LOG_DIR)
+app = FastAPI(title="Ultimate Follow Builder - Integrated System", version="2.0.0")
 
-class SentimentAnalysisApp:
-    """Main application class that orchestrates all components."""
+# Global systems
+ai_generator = AIContentGenerator()
+manager = ConnectionManager()
+
+# Global state
+system_state = {
+    "active_campaigns": [],
+    "total_follows": 0,
+    "total_engagements": 0,
+    "total_followers_gained": 0,
+    "total_content_generated": 0,
+    "account_health": {},
+    "recent_activities": [],
+    "growth_metrics": {},
+    "roi_data": {},
+    "ai_analytics": {}
+}
+
+class IntegratedUltimateFollowBuilder:
+    """Integrated Ultimate Follow Builder with all systems."""
     
     def __init__(self):
-        self.db = DatabaseHandler(logger)
-        self.predictor = SentimentPredictor()
-        self.notification_system = NotificationSystem()
-        self.dashboard = Dashboard()
-        self.trading_api = None
-        
-        # Initialize trading API if credentials are available
-        try:
-            if config.get_env("ALPACA_API_KEY") and config.get_env("ALPACA_SECRET_KEY"):
-                self.trading_api = TradingAPI(paper_trading=True)
-                logger.info("✅ Trading API initialized")
-        except Exception as e:
-            logger.warning(f"⚠️ Trading API not available: {e}")
-        
-        # Application state
-        self.running = False
-        self.tasks = []
-        
-        logger.info("✅ Sentiment Analysis Application initialized")
+        self.builder = None
+        self.ai_generator = ai_generator
+        self.active_campaigns = []
+        self.generated_content = []
     
-    async def start_scraping(self, tickers: List[str], interval_minutes: int = 15, 
-                           duration_hours: int = 8) -> None:
-        """Start the scraping process."""
-        logger.info(f"🔍 Starting scraping for tickers: {tickers}")
+    async def start_campaign(self, niche: str, platform: str, mode: str, 
+                           follow_limit: int, target_audience: Dict[str, Any]) -> Dict[str, Any]:
+        """Start a comprehensive campaign with all systems."""
         
-        try:
-            # Run the multi-ticker scraper
-            await run_multi_ticker_scraper(
-                tickers=tickers,
-                interval_minutes=interval_minutes,
-                run_duration_hours=duration_hours
-            )
-        except Exception as e:
-            logger.error(f"❌ Error in scraping process: {e}")
-    
-    async def start_streaming(self, config: Dict, interval_seconds: int = 60,
-                            duration_seconds: int = 3600) -> None:
-        """Start the multi-platform streaming process."""
-        logger.info("📡 Starting multi-platform streaming")
-        
-        try:
-            async for batch in stream_and_store_posts(
-                config, self.db, interval_seconds, duration_seconds
-            ):
-                if batch:
-                    logger.info(f"📊 Processed {len(batch)} posts from streaming")
-        except Exception as e:
-            logger.error(f"❌ Error in streaming process: {e}")
-    
-    async def start_dashboard(self, host: str = "0.0.0.0", port: int = 8000) -> None:
-        """Start the web dashboard."""
-        logger.info(f"🌐 Starting dashboard on {host}:{port}")
-        
-        try:
-            # Run dashboard in background
-            config = uvicorn.Config(
-                app=self.dashboard.app,
-                host=host,
-                port=port,
-                log_level="info"
-            )
-            server = uvicorn.Server(config)
-            await server.serve()
-        except Exception as e:
-            logger.error(f"❌ Error starting dashboard: {e}")
-    
-    async def start_notifications(self, tickers: List[str], interval_minutes: int = 5) -> None:
-        """Start the notification monitoring system."""
-        logger.info(f"🔔 Starting notification monitoring for {tickers}")
-        
-        try:
-            await self.notification_system.monitor_sentiment_changes(
-                tickers=tickers,
-                interval_minutes=interval_minutes
-            )
-        except Exception as e:
-            logger.error(f"❌ Error in notification system: {e}")
-    
-    async def start_trading_monitor(self, tickers: List[str], interval_minutes: int = 30) -> None:
-        """Start the trading monitoring system."""
-        if not self.trading_api:
-            logger.warning("⚠️ Trading API not available, skipping trading monitor")
-            return
-        
-        logger.info(f"💰 Starting trading monitor for {tickers}")
-        
-        try:
-            while self.running:
-                for ticker in tickers:
-                    # Get trading signal
-                    signal = self.trading_api.get_sentiment_signal(ticker)
-                    
-                    if "error" not in signal:
-                        logger.info(f"📈 Trading signal for {ticker}: {signal.get('signal', 'HOLD')}")
-                        
-                        # Execute trade if signal is strong
-                        if signal.get("signal") in ["BUY", "SELL"] and signal.get("confidence", 0) > 0.7:
-                            trade_result = self.trading_api.execute_sentiment_trade(ticker)
-                            logger.info(f"💼 Trade executed: {trade_result}")
-                
-                # Wait for next check
-                await asyncio.sleep(interval_minutes * 60)
-                
-        except Exception as e:
-            logger.error(f"❌ Error in trading monitor: {e}")
-    
-    async def train_models(self, tickers: List[str], days: int = 30) -> None:
-        """Train predictive models for all tickers."""
-        logger.info(f"🤖 Training models for {tickers}")
-        
-        try:
-            for ticker in tickers:
-                logger.info(f"Training sentiment model for {ticker}")
-                sentiment_results = self.predictor.train_sentiment_model(ticker, days)
-                logger.info(f"Sentiment model results for {ticker}: {sentiment_results}")
-                
-                logger.info(f"Training stock movement model for {ticker}")
-                movement_results = self.predictor.train_stock_movement_model(ticker, days)
-                logger.info(f"Stock movement model results for {ticker}: {movement_results}")
-                
-        except Exception as e:
-            logger.error(f"❌ Error training models: {e}")
-    
-    async def run_all_services(self, tickers: List[str], interval_minutes: int = 15,
-                              dashboard_port: int = 8000) -> None:
-        """Run all services concurrently."""
-        self.running = True
-        
-        # Create tasks for all services
-        tasks = []
-        
-        # Scraping task
-        scraping_task = asyncio.create_task(
-            self.start_scraping(tickers, interval_minutes, duration_hours=24)
+        # Create builder configuration
+        config = BuilderConfig(
+            mode=BuilderMode(mode),
+            platforms=[platform],
+            daily_follow_limit=follow_limit,
+            daily_unfollow_limit=int(follow_limit * 0.8),
+            daily_engagement_limit=follow_limit * 2,
+            engagement_window_days=3,
+            safety_settings={},
+            ai_features_enabled=True,
+            analytics_enabled=True
         )
-        tasks.append(scraping_task)
         
-        # Dashboard task
-        dashboard_task = asyncio.create_task(
-            self.start_dashboard(port=dashboard_port)
-        )
-        tasks.append(dashboard_task)
+        # Initialize builder
+        self.builder = UltimateFollowBuilder(config)
         
-        # Notification task
-        notification_task = asyncio.create_task(
-            self.start_notifications(tickers, interval_minutes=5)
-        )
-        tasks.append(notification_task)
+        # Run the Ultimate Follow Builder
+        result = await self.builder.run_ultimate_builder(niche, target_audience)
         
-        # Trading monitor task
-        if self.trading_api:
-            trading_task = asyncio.create_task(
-                self.start_trading_monitor(tickers, interval_minutes=30)
-            )
-            tasks.append(trading_task)
+        # Generate AI content for the campaign
+        content_result = await self._generate_campaign_content(niche, platform, target_audience)
         
-        # Model training task (run once at startup)
-        training_task = asyncio.create_task(
-            self.train_models(tickers, days=30)
-        )
-        tasks.append(training_task)
-        
-        # Store tasks for cleanup
-        self.tasks = tasks
-        
-        logger.info(f"🚀 All services started. Monitoring {len(tickers)} tickers.")
-        
-        try:
-            # Wait for all tasks to complete
-            await asyncio.gather(*tasks, return_exceptions=True)
-        except KeyboardInterrupt:
-            logger.info("🛑 Received interrupt signal, shutting down...")
-        finally:
-            await self.shutdown()
-    
-    async def shutdown(self) -> None:
-        """Gracefully shutdown all services."""
-        logger.info("🔄 Shutting down services...")
-        
-        self.running = False
-        
-        # Cancel all running tasks
-        for task in self.tasks:
-            if not task.done():
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
-        
-        # Close database connections
-        if hasattr(self.db, 'close_connection'):
-            self.db.close_connection()
-        
-        logger.info("✅ Shutdown complete")
-    
-    def get_status(self) -> Dict:
-        """Get the current status of all components."""
-        status = {
-            "running": self.running,
-            "timestamp": datetime.now().isoformat(),
-            "components": {
-                "database": "connected" if self.db else "disconnected",
-                "predictor": "initialized" if self.predictor else "not_initialized",
-                "notification_system": "initialized" if self.notification_system else "not_initialized",
-                "dashboard": "initialized" if self.dashboard else "not_initialized",
-                "trading_api": "available" if self.trading_api else "not_available"
-            },
-            "models": self.predictor.get_model_performance() if self.predictor else {},
-            "account_info": self.trading_api.get_account_info() if self.trading_api else {}
+        # Combine results
+        integrated_result = {
+            "campaign_id": result.get("strategy_id", f"campaign-{int(time.time())}"),
+            "niche": niche,
+            "platform": platform,
+            "mode": mode,
+            "follow_results": result.get("execution_results", {}),
+            "content_results": content_result,
+            "integrated_metrics": self._calculate_integrated_metrics(result, content_result),
+            "timestamp": datetime.now().isoformat()
         }
         
-        return status
+        # Update global state
+        self._update_system_state(integrated_result)
+        
+        return integrated_result
+    
+    async def _generate_campaign_content(self, niche: str, platform: str, 
+                                       target_audience: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate AI content for the campaign."""
+        
+        # Create content requests for different tones
+        content_requests = [
+            ContentRequest(
+                niche=niche,
+                content_type=ContentType.CAPTION,
+                tone=ToneType.MOTIVATIONAL,
+                platform=platform,
+                target_audience=target_audience,
+                keywords=[niche, "growth", "success"]
+            ),
+            ContentRequest(
+                niche=niche,
+                content_type=ContentType.CAPTION,
+                tone=ToneType.EDUCATIONAL,
+                platform=platform,
+                target_audience=target_audience,
+                keywords=[niche, "tips", "advice"]
+            ),
+            ContentRequest(
+                niche=niche,
+                content_type=ContentType.CAPTION,
+                tone=ToneType.INSPIRATIONAL,
+                platform=platform,
+                target_audience=target_audience,
+                keywords=[niche, "inspiration", "motivation"]
+            )
+        ]
+        
+        # Generate content
+        generated_content = await self.ai_generator.generate_batch_content(content_requests)
+        
+        # Get content analytics
+        content_analytics = await self.ai_generator.get_content_analytics(generated_content)
+        
+        # Store generated content
+        self.generated_content.extend(generated_content)
+        
+        return {
+            "total_content": len(generated_content),
+            "content_list": [
+                {
+                    "id": content.id,
+                    "content": content.content,
+                    "hashtags": content.hashtags,
+                    "engagement_score": content.engagement_score,
+                    "viral_potential": content.viral_potential
+                }
+                for content in generated_content
+            ],
+            "analytics": content_analytics
+        }
+    
+    def _calculate_integrated_metrics(self, follow_result: Dict, content_result: Dict) -> Dict[str, Any]:
+        """Calculate integrated metrics combining follow and content results."""
+        
+        follow_metrics = follow_result.get("execution_results", {}).get("growth_metrics", {})
+        content_analytics = content_result.get("analytics", {})
+        
+        total_follows = follow_metrics.get("total_follows", 0)
+        total_engagements = follow_metrics.get("total_engagements", 0)
+        estimated_followers_gained = follow_metrics.get("estimated_followers_gained", 0)
+        
+        avg_content_engagement = content_analytics.get("average_engagement", 0)
+        avg_viral_potential = content_analytics.get("average_viral_potential", 0)
+        
+        # Calculate integrated engagement rate
+        integrated_engagement_rate = (avg_content_engagement + (total_engagements / max(total_follows, 1))) / 2
+        
+        # Calculate viral growth potential
+        viral_growth_potential = estimated_followers_gained * avg_viral_potential
+        
+        # Calculate ROI
+        estimated_value_per_follower = 2.0
+        total_roi = estimated_followers_gained * estimated_value_per_follower
+        
+        return {
+            "total_follows": total_follows,
+            "total_engagements": total_engagements,
+            "estimated_followers_gained": estimated_followers_gained,
+            "integrated_engagement_rate": integrated_engagement_rate,
+            "viral_growth_potential": viral_growth_potential,
+            "content_engagement_score": avg_content_engagement,
+            "content_viral_potential": avg_viral_potential,
+            "estimated_roi": total_roi,
+            "campaign_efficiency": (integrated_engagement_rate + avg_viral_potential) / 2
+        }
+    
+    def _update_system_state(self, result: Dict[str, Any]):
+        """Update the global system state."""
+        integrated_metrics = result.get("integrated_metrics", {})
+        
+        system_state["total_follows"] += integrated_metrics.get("total_follows", 0)
+        system_state["total_engagements"] += integrated_metrics.get("total_engagements", 0)
+        system_state["total_followers_gained"] += integrated_metrics.get("estimated_followers_gained", 0)
+        system_state["total_content_generated"] += result.get("content_results", {}).get("total_content", 0)
+        
+        # Update ROI
+        system_state["roi_data"]["estimated_roi"] = system_state["total_followers_gained"] * 2.0
+        
+        # Update account health
+        if "follow_results" in result and "account_health" in result["follow_results"]:
+            system_state["account_health"] = result["follow_results"]["account_health"]
+        
+        # Add recent activity
+        activity = f"Campaign completed: {result.get('campaign_id', 'Unknown')} - {result.get('niche', 'Unknown')} on {result.get('platform', 'Unknown')}"
+        system_state["recent_activities"].insert(0, activity)
+        if len(system_state["recent_activities"]) > 10:
+            system_state["recent_activities"] = system_state["recent_activities"][:10]
+        
+        # Update AI analytics
+        content_analytics = result.get("content_results", {}).get("analytics", {})
+        system_state["ai_analytics"] = content_analytics
 
-def signal_handler(signum, frame):
-    """Handle interrupt signals."""
-    logger.info(f"🛑 Received signal {signum}, initiating shutdown...")
-    sys.exit(0)
+# Global integrated builder
+integrated_builder = IntegratedUltimateFollowBuilder()
 
-def main():
-    """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description="Social Media Sentiment Analysis System",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__
-    )
-    
-    parser.add_argument(
-        "--mode",
-        choices=["scraping", "dashboard", "trading", "all"],
-        default="all",
-        help="Operation mode"
-    )
-    
-    parser.add_argument(
-        "--tickers",
-        default="TSLA,SPY,QQQ",
-        help="Comma-separated list of tickers to monitor"
-    )
-    
-    parser.add_argument(
-        "--interval",
-        type=int,
-        default=15,
-        help="Scraping interval in minutes"
-    )
-    
-    parser.add_argument(
-        "--duration",
-        type=int,
-        default=8,
-        help="Duration to run in hours"
-    )
-    
-    parser.add_argument(
-        "--port",
-        type=int,
-        default=8000,
-        help="Dashboard port"
-    )
-    
-    parser.add_argument(
-        "--host",
-        default="0.0.0.0",
-        help="Dashboard host"
-    )
-    
-    parser.add_argument(
-        "--train-models",
-        action="store_true",
-        help="Train predictive models"
-    )
-    
-    args = parser.parse_args()
-    
-    # Setup signal handlers
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-    
-    # Parse tickers
-    tickers = [ticker.strip().upper() for ticker in args.tickers.split(",")]
-    
-    # Create application
-    app = SentimentAnalysisApp()
-    
-    async def run_app():
-        """Run the application based on mode."""
-        try:
-            if args.mode == "scraping":
-                await app.start_scraping(tickers, args.interval, args.duration)
-            
-            elif args.mode == "dashboard":
-                await app.start_dashboard(args.host, args.port)
-            
-            elif args.mode == "trading":
-                if app.trading_api:
-                    await app.start_trading_monitor(tickers, args.interval)
-                else:
-                    logger.error("❌ Trading API not available")
-                    sys.exit(1)
-            
-            elif args.mode == "all":
-                # Train models if requested
-                if args.train_models:
-                    await app.train_models(tickers, days=30)
-                
-                # Run all services
-                await app.run_all_services(tickers, args.interval, args.port)
-            
-        except Exception as e:
-            logger.error(f"❌ Application error: {e}")
-            sys.exit(1)
-    
-    # Run the application
+@app.get("/", response_class=HTMLResponse)
+async def get_dashboard():
+    """Serve the integrated dashboard."""
+    return DASHBOARD_HTML
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket endpoint for real-time updates."""
+    await manager.connect(websocket)
     try:
-        asyncio.run(run_app())
-    except KeyboardInterrupt:
-        logger.info("🛑 Application interrupted by user")
+        # Send initial data
+        await websocket.send_text(json.dumps(system_state))
+        
+        while True:
+            # Receive messages from client
+            data = await websocket.receive_text()
+            message = json.loads(data)
+            
+            if message.get("action") == "start_campaign":
+                await handle_start_campaign(message, websocket)
+            elif message.get("action") == "stop_campaign":
+                await handle_stop_campaign(websocket)
+            elif message.get("action") == "refresh_data":
+                await handle_refresh_data(websocket)
+            elif message.get("action") == "generate_content":
+                await handle_generate_content(message, websocket)
+                
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+async def handle_start_campaign(data: Dict, websocket: WebSocket):
+    """Handle integrated campaign start request."""
+    try:
+        niche = data.get("niche", "fitness")
+        platform = data.get("platform", "instagram")
+        mode = data.get("mode", "moderate")
+        follow_limit = data.get("follow_limit", 50)
+        
+        target_audience = {
+            "min_followers": 2000,
+            "max_followers": 50000,
+            "min_engagement_rate": 0.02,
+            "interests": [niche],
+            "locations": ["United States", "Canada"]
+        }
+        
+        # Start integrated campaign
+        result = await integrated_builder.start_campaign(
+            niche=niche,
+            platform=platform,
+            mode=mode,
+            follow_limit=follow_limit,
+            target_audience=target_audience
+        )
+        
+        # Send updated data to client
+        await websocket.send_text(json.dumps(system_state))
+        
+        # Send detailed result
+        await websocket.send_text(json.dumps({
+            "type": "campaign_result",
+            "data": result
+        }))
+        
     except Exception as e:
-        logger.error(f"❌ Fatal error: {e}")
-        sys.exit(1)
+        await websocket.send_text(json.dumps({"error": str(e)}))
+
+async def handle_stop_campaign(websocket: WebSocket):
+    """Handle campaign stop request."""
+    system_state["active_campaigns"] = []
+    await websocket.send_text(json.dumps({"message": "Campaigns stopped"}))
+
+async def handle_refresh_data(websocket: WebSocket):
+    """Handle data refresh request."""
+    await websocket.send_text(json.dumps(system_state))
+
+async def handle_generate_content(data: Dict, websocket: WebSocket):
+    """Handle content generation request."""
+    try:
+        niche = data.get("niche", "fitness")
+        platform = data.get("platform", "instagram")
+        tone = data.get("tone", "motivational")
+        
+        request = ContentRequest(
+            niche=niche,
+            content_type=ContentType.CAPTION,
+            tone=ToneType(tone),
+            platform=platform,
+            target_audience={},
+            keywords=[niche]
+        )
+        
+        content = await ai_generator.generate_content(request)
+        
+        await websocket.send_text(json.dumps({
+            "type": "content_generated",
+            "data": {
+                "id": content.id,
+                "content": content.content,
+                "hashtags": content.hashtags,
+                "engagement_score": content.engagement_score,
+                "viral_potential": content.viral_potential
+            }
+        }))
+        
+    except Exception as e:
+        await websocket.send_text(json.dumps({"error": str(e)}))
+
+@app.get("/api/stats")
+async def get_stats():
+    """Get current system statistics."""
+    return system_state
+
+@app.get("/api/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
+@app.get("/api/content")
+async def get_generated_content():
+    """Get all generated content."""
+    return {
+        "total_content": len(integrated_builder.generated_content),
+        "content_list": [
+            {
+                "id": content.id,
+                "content": content.content,
+                "hashtags": content.hashtags,
+                "engagement_score": content.engagement_score,
+                "viral_potential": content.viral_potential,
+                "niche": content.niche,
+                "platform": content.platform
+            }
+            for content in integrated_builder.generated_content
+        ]
+    }
+
+async def test_integrated_system():
+    """Test the integrated Ultimate Follow Builder system."""
+    print("🚀 ULTIMATE FOLLOW BUILDER - INTEGRATED SYSTEM TEST")
+    print("=" * 60)
+    
+    # Test integrated campaign
+    target_audience = {
+        "min_followers": 2000,
+        "max_followers": 50000,
+        "min_engagement_rate": 0.02,
+        "interests": ["fitness", "health"],
+        "locations": ["United States", "Canada"]
+    }
+    
+    try:
+        result = await integrated_builder.start_campaign(
+            niche="fitness",
+            platform="instagram",
+            mode="moderate",
+            follow_limit=30,
+            target_audience=target_audience
+        )
+        
+        print(f"✅ Campaign ID: {result['campaign_id']}")
+        print(f"📈 Integrated Metrics:")
+        metrics = result['integrated_metrics']
+        print(f"   - Total Follows: {metrics.get('total_follows', 0)}")
+        print(f"   - Total Engagements: {metrics.get('total_engagements', 0)}")
+        print(f"   - Followers Gained: {metrics.get('estimated_followers_gained', 0)}")
+        print(f"   - Integrated Engagement Rate: {metrics.get('integrated_engagement_rate', 0):.2%}")
+        print(f"   - Viral Growth Potential: {metrics.get('viral_growth_potential', 0):.2f}")
+        print(f"   - Estimated ROI: ${metrics.get('estimated_roi', 0):.2f}")
+        print(f"   - Campaign Efficiency: {metrics.get('campaign_efficiency', 0):.2%}")
+        
+        print(f"\n🤖 AI Content Generated:")
+        content_results = result['content_results']
+        print(f"   - Total Content: {content_results.get('total_content', 0)}")
+        
+        content_list = content_results.get('content_list', [])
+        for i, content in enumerate(content_list[:3], 1):
+            print(f"   {i}. {content['content'][:50]}...")
+            print(f"      Engagement: {content['engagement_score']:.2f}, Viral: {content['viral_potential']:.2f}")
+        
+        print(f"\n📊 System State:")
+        print(f"   - Total Follows: {system_state['total_follows']}")
+        print(f"   - Total Engagements: {system_state['total_engagements']}")
+        print(f"   - Total Followers Gained: {system_state['total_followers_gained']}")
+        print(f"   - Total Content Generated: {system_state['total_content_generated']}")
+        print(f"   - Estimated ROI: ${system_state['roi_data'].get('estimated_roi', 0):.2f}")
+        
+        return result
+        
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return None
 
 if __name__ == "__main__":
-    main() 
+    print("🚀 Starting Ultimate Follow Builder - Integrated System...")
+    print("📊 Dashboard available at: http://localhost:8004")
+    print("🌐 WebSocket endpoint: ws://localhost:8004/ws")
+    print("🤖 AI Content Generator: Active")
+    print("📈 Growth Automation: Active")
+    print("🛡️ Safety Features: Active")
+    
+    # Run test
+    asyncio.run(test_integrated_system())
+    
+    # Start web server
+    uvicorn.run(app, host="0.0.0.0", port=8004) 
