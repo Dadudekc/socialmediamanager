@@ -62,6 +62,7 @@ class Config:
         # Browser & Session Configurations
         self.CHROME_PROFILE_PATH = self.get_env("CHROME_PROFILE_PATH", os.path.join(os.getcwd(), "chrome_profile"))
         self.COOKIE_STORAGE_PATH = self.get_env("COOKIE_STORAGE_PATH", os.path.join(os.getcwd(), "cookies"))
+        self.USE_UNDETECTED_CHROME = self.get_env("USE_UNDETECTED_CHROME", "false").lower() == "true"
 
         # Security & Session Settings
         self.MAX_LOGIN_ATTEMPTS = self.get_env("MAX_LOGIN_ATTEMPTS", 3, cast_type=int)

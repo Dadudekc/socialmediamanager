@@ -23,6 +23,12 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
+
+# Optional undetected-chromedriver
+try:
+    import undetected_chromedriver as uc
+except ImportError:  # pragma: no cover - fallback when package missing
+    uc = None
 from dotenv import load_dotenv
 
 # Load environment variables if needed (credentials, etc.)
@@ -68,19 +74,39 @@ SOCIAL_CREDENTIALS = {
 
 MAX_ATTEMPTS = 3  # Maximum manual login attempts
 
-def get_driver(profile_path: str = None):
+def get_driver(profile_path: str = None, use_undetected: bool = None):
+    """Return a Chrome driver instance.
+
+    Parameters
+    ----------
+    profile_path: str, optional
+        Path to the Chrome user data directory.
+    use_undetected: bool, optional
+        If ``True`` use ``undetected_chromedriver``; if ``None`` the value is
+        read from ``USE_UNDETECTED_CHROME`` in the environment.
     """
-    Returns a Selenium Chrome driver instance that uses a persistent profile.
-    If profile_path is not provided, defaults to a folder named 'chrome_profile'
-    in the current working directory (or as configured).
-    """
-    options = Options()
-    options.add_argument("--start-maximized")
-    
+    if use_undetected is None:
+        use_undetected = config.get_env("USE_UNDETECTED_CHROME", "false").lower() == "true"
+
     if profile_path is None:
         profile_path = config.get_env("CHROME_PROFILE_PATH", os.path.join(os.getcwd(), "chrome_profile"))
+
+    if use_undetected and uc:
+        options = uc.ChromeOptions()
+        options.add_argument("--start-maximized")
+        options.add_argument(f"--user-data-dir={profile_path}")
+        driver = uc.Chrome(options=options)
+        logger.info("Undetected Chrome driver initialized with profile: %s", profile_path)
+        return driver
+
+    # Fallback to standard Selenium driver
+    options = Options()
+    options.add_argument("--start-maximized")
     options.add_argument(f"--user-data-dir={profile_path}")
-    
+
+    if use_undetected and not uc:
+        logger.warning("undetected-chromedriver not installed; using standard Selenium driver.")
+
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
     logger.info("Chrome driver initialized with profile: %s", profile_path)
