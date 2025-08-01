@@ -48,6 +48,7 @@ MAX_LOGIN_ATTEMPTS=3
 LOGIN_WAIT_TIME=5
 CAPTCHA_WAIT_TIME=10
 DEBUG_MODE=false
+USE_UNDETECTED_CHROME=false
 
 # Database Type (currently only MySQL supported)
-DB_TYPE=mysql 
+DB_TYPE=mysql

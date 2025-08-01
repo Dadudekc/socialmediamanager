@@ -30,3 +30,4 @@ dataclasses
 PyQt6
 schedule
 pydantic
+undetected-chromedriver

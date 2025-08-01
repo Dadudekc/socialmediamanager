@@ -98,8 +98,10 @@ class SocialMediaAutomation:
     
     def initialize_driver(self):
         """Initialize the web driver."""
-        self.driver = get_driver()
-        logger.info("✅ Web driver initialized")
+        self.driver = get_driver(use_undetected=config.USE_UNDETECTED_CHROME)
+        logger.info(
+            "✅ Web driver initialized (undetected=%s)", config.USE_UNDETECTED_CHROME
+        )
     
     def close_driver(self):
         """Close the web driver."""
