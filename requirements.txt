@@ -28,3 +28,5 @@ yfinance
 pyyaml
 dataclasses
 PyQt6
+schedule
+pydantic
