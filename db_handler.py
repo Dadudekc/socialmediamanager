@@ -148,20 +148,38 @@ class DatabaseHandler:
             raise
 
     def fetch_sentiment(self, ticker, limit=10):
+        """Fetch the most recent sentiment rows for ``ticker``.
+
+        Parameters
+        ----------
+        ticker: str
+            Stock ticker symbol to filter by.
+        limit: int
+            Maximum number of rows to return.
+
+        Returns
+        -------
+        list[dict]
+            Each row as a dictionary with keys matching the column names. An
+            empty list is returned if an error occurs.
         """
-        Fetches the most recent sentiment data for a given ticker.
-        :param ticker: Stock ticker symbol.
-        :param limit: Maximum number of records to retrieve.
-        :return: List of tuples containing sentiment data.
-        """
-        query = """
-        SELECT id, ticker, timestamp, content, textblob_sentiment, vader_sentiment, sentiment_category
-        FROM SentimentData WHERE ticker = %s ORDER BY timestamp DESC LIMIT %s;
-        """
+
+        query = (
+            "SELECT timestamp, content, textblob_sentiment, vader_sentiment, "
+            "sentiment_category FROM SentimentData WHERE ticker = %s "
+            "ORDER BY timestamp DESC LIMIT %s;"
+        )
         try:
             self.cursor.execute(query, (ticker, limit))
             rows = self.cursor.fetchall()
-            return rows
+            columns = [
+                "timestamp",
+                "content",
+                "textblob_sentiment",
+                "vader_sentiment",
+                "sentiment_category",
+            ]
+            return [dict(zip(columns, row)) for row in rows]
         except Exception as e:
             self.logger.error(f"⚠️ Error fetching sentiment data: {e}")
             return []
