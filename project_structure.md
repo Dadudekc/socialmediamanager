@@ -3,7 +3,7 @@
 ## 📁 **PROPOSED DIRECTORY STRUCTURE**
 
 ```
-socialmediamanager/
+social-media-manager/
 ├── 📁 src/
 │   ├── 📁 core/
 │   │   ├── __init__.py

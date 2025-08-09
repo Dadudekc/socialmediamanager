@@ -47,7 +47,7 @@ Welcome to the comprehensive documentation for the Ultimate Follow Builder - the
 ## 📞 Support
 
 - **GitHub Issues**: [Report bugs or request features](https://github.com/yourusername/ultimate-follow-builder/issues)
-- **GitHub Discussions**: [Ask questions and share ideas](https://github.com/yourusername/ultimate-follow-builder/discussions)
+- **GitHub Discussions**: [Ask questions and share project-ideas](https://github.com/yourusername/ultimate-follow-builder/discussions)
 - **Email Support**: support@ultimatefollowbuilder.com
 
 ## 🔄 Documentation Updates
